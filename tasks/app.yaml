@@ -13,7 +13,6 @@
 # limitations under the License.
 
 runtime: python37
-service: worker
 
 # [START taskqueues_use_https]
 handlers:

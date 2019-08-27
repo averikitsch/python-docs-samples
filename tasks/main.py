@@ -20,6 +20,54 @@ from google.cloud import datastore
 app = Flask(__name__)
 
 
+@app.route('/')
+def main():
+    counter = get_counter()
+    count = counter['count']
+    html = """
+            Count: {}<br>
+            <form method="post" action="/enqueue">
+                <label>Increment amount</label>
+                <input name="amount" value="1">
+                <button>Enqueue task</button>
+            </form>
+            """.format(count)
+    return html
+
+
+@app.route('/enqueue', methods=['POST'])
+def enqueue():
+    from google.cloud import tasks_v2beta3
+
+    # Create a client.
+    client = tasks_v2beta3.CloudTasksClient()
+
+    # Get increment amount from form
+    payload = request.form["amount"]
+
+    # TODO(developer): Replace with your values.
+    project = 'my-project-id'
+    queue = 'my-queue'
+    location = 'us-central1'
+
+    # Construct the fully qualified queue name.
+    parent = client.queue_path(project, location, queue)
+
+    # Construct the request body.
+    task = {
+            'app_engine_http_request': {  # Specify the type of request.
+                'http_method': 'POST',
+                'relative_uri': '/update_counter',
+                'body': payload.encode()
+            }
+    }
+
+    # Use the client to build and send the task.
+    response = client.create_task(parent, task)
+
+    return "Task enqueued"
+
+
 @app.route('/update_counter', methods=['POST'])
 def example_task_handler():
     # [START taskqueues_secure_handler]
@@ -35,12 +83,17 @@ def example_task_handler():
     return
 
 
-def update_counter(amount):
+def get_counter():
     # Instantiates a client
     client = datastore.Client()
 
     key = client.key('Counter', 'count')
     counter = client.get(key)
+    return counter
+
+
+def update_counter(amount):
+    counter = get_counter()
 
     # Create entity if it doesn't exist
     if counter is None:
